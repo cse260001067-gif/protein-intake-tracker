@@ -94,7 +94,7 @@ I chose these numbers as a simple approach for a learning project. They are not 
 
 ## Where the food data comes from
 
-The protein values in the common foods list are approximate values per serving, taken from **[WRITE YOUR SOURCE HERE, e.g. IFCT 2017 / USDA FoodData Central]**.
+The protein values in the common foods list are approximate values per serving, taken from **IFCT**.
 
 Some servings are household measures (for example "1 katori"), so they are rough estimates and the real amount can vary. The list is stored in the `foods` array at the top of `script.js` and is easy to edit.
 
