@@ -169,7 +169,7 @@ protein-intake-tracker/
 
 ## Help I used
 
-I used an AI assistant (Claude) while building this project, to help with the code and to explain how things work. I went through the code to understand it.
+I used an AI assistant (Claude) while building this project, to help with the code and to explain how certain things work. I also used it to help me with debugging and styling the website.
 
 ---
 
