@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- this line makes the page fit properly on phones, dont remove it -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protein Intake Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <h1>Protein Intake Tracker</h1>
+
+  <!-- ========== PART 1: profile setup ==========
+       this shows up the first time, or when i click "Edit profile" -->
+  <div id="profileSection">
+    <h2>Set up your profile</h2>
+
+    <label for="weight">Body weight (kg)</label>
+    <input type="number" id="weight" placeholder="e.g. 65">
+
+    <label for="activity">Activity level</label>
+    <select id="activity">
+      <option value="sedentary">Sedentary (desk job, little exercise)</option>
+      <option value="light">Light (exercise 1-3 days a week)</option>
+      <option value="moderate">Moderate (exercise 3-5 days a week)</option>
+      <option value="heavy">Heavy (hard exercise 6-7 days a week)</option>
+    </select>
+
+    <label for="goal">Goal</label>
+    <select id="goal">
+      <option value="maintain">Maintain weight</option>
+      <option value="lose">Lose fat</option>
+      <option value="gain">Build muscle</option>
+    </select>
+
+    <button onclick="saveProfile()">Calculate my target</button>
+    <!-- this cancel button is hidden at first, JS shows it only when editing the profile -->
+    <button id="cancelProfileButton" onclick="showScreens()" style="display: none;">Cancel</button>
+    <p id="profileMessage"></p>
+  </div>
+
+
+  <!-- ========== PART 2: the actual tracker ==========
+       hidden until the profile is saved -->
+  <div id="trackerSection">
+
+    <!-- ----- daily target ----- -->
+    <div id="targetBox">
+      <h2>Your daily target</h2>
+      <p>Recommended for you: <span id="recommendedText"></span> g</p>
+      <p>Your current target: <strong id="targetText"></strong> g</p>
+
+      <label for="manualTarget">Want to set your own target? (in grams)</label>
+      <input type="number" id="manualTarget" placeholder="e.g. 90">
+
+      <button onclick="saveManualTarget()">Use my target</button>
+      <button onclick="useRecommended()">Use recommended</button>
+      <button onclick="editProfile()">Edit profile</button>
+      <p id="targetMessage"></p>
+    </div>
+
+    <hr>
+
+    <!-- ----- daily summary with progress bar ----- -->
+    <div id="summaryBox">
+      <h2>Today's summary (<span id="todayText"></span>)</h2>
+      <progress id="progressBar" max="100" value="0"></progress>
+      <p id="summaryText"></p>
+      <p id="remainingText"></p>
+    </div>
+
+    <hr>
+
+    <!-- ----- add / edit food ----- -->
+    <div id="foodBox">
+      <h2 id="formHeading">Add food</h2>
+
+      <label for="foodList">Pick from common foods (or keep the first option and type your own)</label>
+      <select id="foodList" onchange="fillFromList()">
+        <!-- options get added by JS (loadFoodList function) -->
+      </select>
+
+      <label for="foodName">Food name</label>
+      <input type="text" id="foodName" placeholder="e.g. Egg" maxlength="40">
+
+      <label for="quantity">Quantity (number of servings)</label>
+      <input type="number" id="quantity" value="1" step="any" oninput="fillFromList()">
+
+      <label for="protein">Protein (grams, total for this quantity)</label>
+      <input type="number" id="protein" placeholder="e.g. 12" step="any">
+
+      <button id="saveEntryButton" onclick="saveEntry()">Add food</button>
+      <!-- hidden unless i am editing an entry -->
+      <button id="cancelEditButton" onclick="clearForm()" style="display: none;">Cancel edit</button>
+      <p id="foodMessage"></p>
+    </div>
+
+    <hr>
+
+    <!-- ----- list of foods eaten today ----- -->
+    <div id="listBox">
+      <h2>Foods logged today</h2>
+      <ul id="entryList"></ul>
+    </div>
+
+  </div>
+
+  <hr>
+  <p>Note: this is a tracking tool for learning purposes. It does not give medical advice.</p>
+
+  <script src="script.js"></script>
+</body>
+</html>
