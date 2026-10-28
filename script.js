@@ -1,5 +1,5 @@
 // ================================================
-// Protein Intake Tracker - stage 1
+// Protein Intake Tracker - stage 2 (history added)
 // all the javascript is in this file. i split it into parts so its easy to find stuff
 // ================================================
 
@@ -26,18 +26,26 @@ var foods = [
   { name: "Whey protein", serving: "1 scoop", protein: 24 }
 ];
 
+// short day names, used for the weekly chart labels (getDay() gives 0 for sunday, 1 for monday etc)
+var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 // these variables hold everything the app needs to remember
 var profile = null;     // will become an object with weight, activity, goal, recommended and target
 var entries = [];       // all the food entries (every day, not just today)
+var targets = {};       // the target i had on each date, like { "2026-10-28": 104 }
 var editingId = null;   // if i am editing an entry this has its id, otherwise it stays null
+
+// HISTORY NOTE: i dont need a separate place to store history.
+// every entry already has a date, so history is just the same entries grouped by date.
+// i only added "targets" so old days are compared with the target i had back then,
+// not with whatever my target is today.
 
 
 // ---------- PART 2: SMALL HELPER FUNCTIONS ----------
 
-// gives today's date like 2026-10-28
+// turns a Date object into text like 2026-10-28
 // (i am not using toISOString because that gives the UTC date and it can be wrong in india early in the morning)
-function getTodayDate() {
-  var d = new Date();
+function formatDate(d) {
   var year = d.getFullYear();
   var month = d.getMonth() + 1;   // months start from 0 in js so +1
   var day = d.getDate();
@@ -53,6 +61,11 @@ function getTodayDate() {
   return year + "-" + month + "-" + day;
 }
 
+// gives today's date like 2026-10-28
+function getTodayDate() {
+  return formatDate(new Date());
+}
+
 // finds the position of an entry in the entries array using its id
 // returns -1 if it cant find it
 function findEntryIndex(id) {
@@ -64,6 +77,31 @@ function findEntryIndex(id) {
   return -1;
 }
 
+// adds up the protein of all entries on one date
+function getTotalForDate(date) {
+  var total = 0;
+  for (var i = 0; i < entries.length; i++) {
+    if (entries[i].date == date) {
+      total = total + entries[i].protein;
+    }
+  }
+  return Math.round(total * 10) / 10;   // avoids ugly numbers like 12.600000001
+}
+
+// what was my target on that date?
+// if i dont have it saved (old data) just use the current target
+function getTargetForDate(date) {
+  if (targets[date] != undefined) {
+    return targets[date];
+  }
+  return profile.target;
+}
+
+// saves today's target into the targets object (the caller has to run saveData after this)
+function recordTodayTarget() {
+  targets[getTodayDate()] = profile.target;
+}
+
 
 // ---------- PART 3: SAVING AND LOADING (localStorage) ----------
 
@@ -71,12 +109,14 @@ function findEntryIndex(id) {
 function saveData() {
   localStorage.setItem("profile", JSON.stringify(profile));
   localStorage.setItem("entries", JSON.stringify(entries));
+  localStorage.setItem("targets", JSON.stringify(targets));
 }
 
 // and JSON.parse turns the text back into normal js data
 function loadData() {
   var savedProfile = localStorage.getItem("profile");
   var savedEntries = localStorage.getItem("entries");
+  var savedTargets = localStorage.getItem("targets");
 
   // if nothing was saved before these will be null, so i check first
   if (savedProfile != null) {
@@ -84,6 +124,9 @@ function loadData() {
   }
   if (savedEntries != null) {
     entries = JSON.parse(savedEntries);
+  }
+  if (savedTargets != null) {
+    targets = JSON.parse(savedTargets);
   }
 }
 
@@ -139,6 +182,7 @@ function saveProfile() {
   };
 
   message.textContent = "";
+  recordTodayTarget();   // remember today's target for the history
   saveData();
   showScreens();
 }
@@ -167,6 +211,7 @@ function saveManualTarget() {
   }
 
   profile.target = Math.round(newTarget);
+  recordTodayTarget();
   document.getElementById("manualTarget").value = "";
   message.textContent = "Target updated.";
   saveData();
@@ -176,6 +221,7 @@ function saveManualTarget() {
 // goes back to the recommended target
 function useRecommended() {
   profile.target = profile.recommended;
+  recordTodayTarget();
   document.getElementById("targetMessage").textContent = "Using the recommended target.";
   saveData();
   updateEverything();
@@ -278,7 +324,7 @@ function saveEntry() {
     // adding a brand new entry
     var newEntry = {
       id: Date.now(),          // current time in milliseconds, so every entry gets its own id
-      date: getTodayDate(),    // saving the date now so the history part is easy later
+      date: getTodayDate(),    // the date is what the history part uses to group entries
       name: name,
       quantity: quantity,
       protein: protein
@@ -346,7 +392,7 @@ function deleteEntry(id) {
 }
 
 
-// ---------- PART 6: SHOWING THINGS ON THE PAGE ----------
+// ---------- PART 6: SHOWING TODAY ON THE PAGE ----------
 
 // shows the recommended and current target
 function updateTargetBox() {
@@ -398,20 +444,13 @@ function showTodayEntries() {
 // adds up today's protein and updates the progress bar
 function updateSummary() {
   var today = getTodayDate();
-  var total = 0;
-
-  for (var i = 0; i < entries.length; i++) {
-    if (entries[i].date == today) {
-      total = total + entries[i].protein;
-    }
-  }
-  total = Math.round(total * 10) / 10;   // avoids ugly numbers like 12.600000001
+  var total = getTotalForDate(today);
 
   var target = profile.target;
   var percent = Math.round((total / target) * 100);
   var remaining = Math.round((target - total) * 10) / 10;
 
-  document.getElementById("todayText").textContent = getTodayDate();
+  document.getElementById("todayText").textContent = today;
   document.getElementById("summaryText").textContent = "Consumed: " + total + " g of " + target + " g (" + percent + "%)";
 
   // the bar can't go above 100 so i stop it there
@@ -431,16 +470,155 @@ function updateSummary() {
   }
 }
 
-// one function that refreshes all 3 parts, i call this whenever data changes
+
+// ---------- PART 7: HISTORY (new in stage 2) ----------
+
+// weekly chart: one bar for each of the last 7 days (today is the last one)
+// i am using the <progress> tag as the bar so i dont need any extra library
+function showWeeklyChart() {
+  var chart = document.getElementById("weeklyChart");
+  chart.innerHTML = "";   // clear the old chart
+
+  var sum = 0;        // total protein of the 7 days
+  var daysMet = 0;    // number of days i reached the target
+
+  // i goes 6, 5, 4 ... 0 which means "6 days ago" up to "today"
+  for (var i = 6; i >= 0; i--) {
+    var d = new Date();
+    d.setDate(d.getDate() - i);   // go back i days
+    var date = formatDate(d);
+
+    var total = getTotalForDate(date);
+    var target = getTargetForDate(date);
+
+    sum = sum + total;
+    if (total >= target) {
+      daysMet++;
+    }
+
+    // text above the bar, like "Mon 2026-10-26: 85 g of 104 g"
+    var label = document.createElement("p");
+    label.textContent = dayNames[d.getDay()] + " " + date + ": " + total + " g of " + target + " g";
+
+    var bar = document.createElement("progress");
+    bar.max = target;     // a full bar = target reached
+    bar.value = total;    // goes above max? the browser just shows it full
+
+    chart.appendChild(label);
+    chart.appendChild(bar);
+  }
+
+  var average = Math.round(sum / 7);
+  document.getElementById("weeklyText").textContent =
+    "Average: " + average + " g per day (days with nothing logged count as 0). Target reached on " + daysMet + " of 7 days.";
+}
+
+// list of previous days (every day that has entries, except today), newest first
+function showHistory() {
+  var list = document.getElementById("historyList");
+  list.innerHTML = "";
+
+  var today = getTodayDate();
+  var dates = [];   // the different dates found in entries
+
+  // go through all entries and collect each date once
+  for (var i = 0; i < entries.length; i++) {
+    var date = entries[i].date;
+    if (date != today && dates.indexOf(date) == -1) {   // indexOf gives -1 if its not in the array yet
+      dates.push(date);
+    }
+  }
+
+  // dates look like 2026-10-28 so normal sorting puts them oldest -> newest
+  // then reverse() flips it so newest is on top
+  dates.sort();
+  dates.reverse();
+
+  for (var j = 0; j < dates.length; j++) {
+    var day = dates[j];
+    var total = getTotalForDate(day);
+    var target = getTargetForDate(day);
+    var percent = Math.round((total / target) * 100);
+
+    var result = "target not reached";
+    if (total >= target) {
+      result = "target reached";
+    }
+
+    var li = document.createElement("li");
+
+    var text = document.createElement("span");
+    text.textContent = day + " | " + total + " g of " + target + " g (" + percent + "%) | " + result;
+
+    var viewButton = document.createElement("button");
+    viewButton.textContent = "View foods";
+    viewButton.setAttribute("onclick", "viewDay('" + day + "')");
+
+    li.appendChild(text);
+    li.appendChild(document.createElement("br"));
+    li.appendChild(viewButton);
+    list.appendChild(li);
+  }
+
+  if (dates.length == 0) {
+    list.innerHTML = "<li>No previous days yet.</li>";
+  }
+}
+
+// runs when i click "View foods" on a previous day - shows what i ate that day
+function viewDay(date) {
+  var box = document.getElementById("dayDetails");
+  box.innerHTML = "";   // clear whatever was showing before
+
+  var heading = document.createElement("h3");
+  heading.textContent = "Foods on " + date;
+  box.appendChild(heading);
+
+  var list = document.createElement("ul");
+
+  for (var i = 0; i < entries.length; i++) {
+    if (entries[i].date == date) {
+      var li = document.createElement("li");
+      li.textContent = entries[i].name + " | quantity: " + entries[i].quantity + " | " + entries[i].protein + " g protein";
+      list.appendChild(li);
+    }
+  }
+  box.appendChild(list);
+
+  var totalText = document.createElement("p");
+  totalText.textContent = "Total: " + getTotalForDate(date) + " g";
+  box.appendChild(totalText);
+
+  var closeButton = document.createElement("button");
+  closeButton.textContent = "Close";
+  closeButton.setAttribute("onclick", "closeDay()");
+  box.appendChild(closeButton);
+}
+
+// hides the day details again
+function closeDay() {
+  document.getElementById("dayDetails").innerHTML = "";
+}
+
+// one function that refreshes everything on the page, i call this whenever data changes
 function updateEverything() {
   updateTargetBox();
   updateSummary();
   showTodayEntries();
+  showWeeklyChart();
+  showHistory();
 }
 
 
-// ---------- PART 7: START THE APP ----------
+// ---------- PART 8: START THE APP ----------
 // this runs when the page opens
 loadFoodList();   // fill the dropdown
 loadData();       // get saved stuff from localStorage
+
+// if there is a profile already, remember today's target (so each day has its target saved)
+if (profile != null) {
+  recordTodayTarget();
+  saveData();
+}
+
 showScreens();    // show the profile form or the tracker
